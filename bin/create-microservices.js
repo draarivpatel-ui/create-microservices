@@ -5,7 +5,7 @@ import { stdin, stdout } from 'node:process';
 import { createRequire } from 'node:module';
 import { spawnSync } from 'node:child_process';
 import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
-import { basename, delimiter, isAbsolute, resolve } from 'node:path';
+import { basename, delimiter, isAbsolute, resolve, sep } from 'node:path';
 
 const SERVICE_TYPES = new Set(['backend', 'frontend', 'worker', 'mcp']);
 const DEFAULT_SERVICES = [
@@ -129,9 +129,10 @@ function findOnPath(name) {
 function resolveCli() {
   const override = process.env.FLISK_CLI_PATH;
   if (override) {
-    return override.endsWith('.js')
-      ? { command: process.execPath, prefix: [override] }
-      : { command: override, prefix: [] };
+    // Path overrides are relative to the caller, not the scaffold target.
+    if (override.endsWith('.js')) return { command: process.execPath, prefix: [resolve(override)] };
+    const command = override.includes('/') || override.includes(sep) ? resolve(override) : override;
+    return { command, prefix: [] };
   }
 
   const cliModule = resolveCliModule();

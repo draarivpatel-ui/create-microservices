@@ -15,10 +15,11 @@ function createTempDirectory() {
   return directory;
 }
 
-function runCli(args) {
+function runCli(args, env = process.env) {
   return spawnSync(process.execPath, [cli, ...args], {
     cwd: repoRoot,
     encoding: 'utf8',
+    env,
     maxBuffer: 10 * 1024 * 1024,
   });
 }
@@ -55,6 +56,20 @@ test('creates the default API and web services through the Flisk CLI', () => {
 
   assert.match(readFileSync(join(target, '.flisk', '.flisk-out', 'Tiltfile'), 'utf8'), /load\(/);
 });
+
+const relativeOverrides = [['script', './node_modules/@flisk-sh/flisk/cli/bin/flisk.js']];
+if (process.platform !== 'win32') relativeOverrides.push(['executable', './node_modules/.bin/flisk']);
+
+for (const [kind, path] of relativeOverrides) {
+  test(`resolves a relative Flisk CLI ${kind} override from the caller directory`, () => {
+    const target = join(createTempDirectory(), 'relative-override');
+    const result = runCli([target, '--service', 'api:backend'], { ...process.env, FLISK_CLI_PATH: path });
+
+    assert.equal(result.status, 0, `${path}: ${result.stderr || result.stdout}`);
+    const service = readJson(join(target, 'services', 'main', 'api', 'service.json'));
+    assert.equal(service.name, 'api');
+  });
+}
 
 test('passes custom stack and all supported service types to the Flisk CLI', () => {
   const parent = createTempDirectory();
